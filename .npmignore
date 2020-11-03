@@ -1,0 +1,10 @@
+/.git
+/node_modules
+*.lock
+*.ts
+package-lock.json
+*.log
+*.map
+.gitignore
+tsconfig.json
+!*.d.ts
