@@ -4,6 +4,8 @@ import { ExtraReplyMessage } from "telegraf/typings/telegram-types";
 
 const defaultFilters = {
     'text': (ctx: TelegrafContext) => (ctx.message?.text?.length ?? 0) > 0,
+    'number': (ctx: TelegrafContext) => defaultFilters['text'](ctx) && !Number.isNaN(parseFloat(ctx.message.text)),
+    'callback_query': (ctx: TelegrafContext) => typeof ctx.callbackQuery !== 'undefined',
 };
 
 export default function TelegrafQuestion<TContext extends TelegrafContext>(): Middleware<TContext> {
@@ -18,28 +20,44 @@ export default function TelegrafQuestion<TContext extends TelegrafContext>(): Mi
 
             ctx.ask = async (
                 question: { text: string; extra?: ExtraReplyMessage } | string,
-                type: 'text' = 'text',
+                cancel?: ((ctx: TelegrafContext) => Promise<boolean> | boolean) | string | null,
+                type: 'text' | 'number' | 'callback_query' = 'text',
                 errorText: { text: string; extra?: ExtraReplyMessage } | string | null = null,
                 filter?: (ctx: TelegrafContext) => Promise<boolean> | boolean
-            ): Promise<TelegrafContext> => {
+            ): Promise<TelegrafContext | null> => {
+
+                let cancelFunction = (ctx: TelegrafContext) => {
+                    if (typeof cancel !== 'undefined' && cancel !== null) {
+                        if (typeof cancel === 'string') {
+                            return ctx.message?.text === cancel;
+                        } else {
+                            return cancel(ctx);
+                        }
+                    }
+                    return false;
+                };
 
                 return await new Promise<TelegrafContext>((resolve) => {
                     async function* answer() {
                         let filterResult = false;
                         while (!filterResult) {
                             let ctx: TelegrafContext = yield filterResult;
-                            filterResult = (await defaultFilters[type]) && (typeof filter === 'undefined' ? true : await filter(ctx));
+                            filterResult = (await defaultFilters[type](ctx)) && (typeof filter === 'undefined' ? true : await filter(ctx));
+                            if (filterResult || cancelFunction(ctx)) {
+                                if (filterResult) {
+                                    resolve(ctx);
+                                } else {
+                                    resolve(null)
+                                }
+                                delete wasAsked[ctx.chat.id];
+                                return filterResult;
+                            }
                             if (!filterResult && errorText !== null) {
                                 if (typeof errorText === 'string') {
                                     ctx.reply(errorText);
                                 } else {
                                     ctx.reply(errorText.text, errorText.extra);
                                 }
-                            }
-                            if (filterResult) {
-                                resolve(ctx);
-                                delete wasAsked[ctx.chat.id];
-                                return filterResult;
                             }
                         }
                     }
@@ -69,9 +87,10 @@ declare module 'telegraf/typings/context' {
     interface TelegrafContext {
         ask: (
             question: { text: string; extra?: ExtraReplyMessage } | string,
-            type?: 'text',
+            cancel?: ((ctx: TelegrafContext) => Promise<boolean> | boolean) | string | null,
+            type?: 'text' | 'number' | 'callback_query',
             errorText?: { text: string; extra?: ExtraReplyMessage } | string | null,
             filter?: (ctx: TelegrafContext) => Promise<boolean> | boolean,
-        ) => Promise<TelegrafContext>;
+        ) => Promise<TelegrafContext> | Promise<null>;
     }
 }
