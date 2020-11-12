@@ -43,11 +43,12 @@ export default function TelegrafQuestion<TContext extends TelegrafContext>(): Mi
                         while (!filterResult) {
                             let ctx: TelegrafContext = yield filterResult;
                             filterResult = (await defaultFilters[type](ctx)) && (typeof filter === 'undefined' ? true : await filter(ctx));
-                            if (filterResult || cancelFunction(ctx)) {
-                                if (filterResult) {
-                                    resolve(ctx);
+                            let isCancelled = cancelFunction(ctx);
+                            if (filterResult || isCancelled) {
+                                if (isCancelled) {
+                                    resolve(null);
                                 } else {
-                                    resolve(null)
+                                    resolve(ctx)
                                 }
                                 delete wasAsked[ctx.chat.id];
                                 return filterResult;
