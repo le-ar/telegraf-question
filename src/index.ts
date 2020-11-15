@@ -79,7 +79,7 @@ export default function TelegrafQuestion<TContext extends TelegrafContext>(): Mi
 
             };
 
-            next();
+            return await next();
         }
     }
 }
