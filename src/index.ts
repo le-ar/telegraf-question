@@ -8,10 +8,14 @@ const defaultFilters = {
     'callback_query': (ctx: TelegrafContext) => typeof ctx.callbackQuery !== 'undefined',
 };
 
-export default function TelegrafQuestion<TContext extends TelegrafContext>(): Middleware<TContext> {
+export default function TelegrafQuestion<TContext extends TelegrafContext>(config?: {
+    cancelTimeout?: number,
+}): Middleware<TContext> {
     let wasAsked: {
         [key: string]: any
     } = {};
+
+    let cancelTime = config?.cancelTimeout ?? -1;
 
     return async (ctx, next) => {
         if (ctx.chat.id in wasAsked) {
@@ -38,10 +42,17 @@ export default function TelegrafQuestion<TContext extends TelegrafContext>(): Mi
                 };
 
                 return await new Promise<TelegrafContext>((resolve) => {
+                    let cancelTimeoutObj = {};
+
                     async function* answer() {
                         let filterResult = false;
                         while (!filterResult) {
                             let ctx: TelegrafContext = yield filterResult;
+                            if (ctx === cancelTimeoutObj) {
+                                resolve(null);
+                                delete wasAsked[ctx.chat.id];
+                                return filterResult;
+                            }
                             filterResult = (await defaultFilters[type](ctx)) && (typeof filter === 'undefined' ? true : await filter(ctx));
                             let isCancelled = cancelFunction(ctx);
                             if (filterResult || isCancelled) {
@@ -74,6 +85,14 @@ export default function TelegrafQuestion<TContext extends TelegrafContext>(): Mi
                         ctx.reply(question);
                     } else {
                         ctx.reply(question.text, question.extra);
+                    }
+
+                    if (cancelTime > 0) {
+                        setTimeout(() => {
+                            if (wasAsked[ctx.chat.id] === ask) {
+                                ask.next(<any>cancelTimeoutObj);
+                            }
+                        }, cancelTime);
                     }
                 });
 
