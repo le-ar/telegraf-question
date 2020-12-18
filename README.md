@@ -10,6 +10,12 @@ This package allows you to ask users questions and get an answer with Promise.
 ## Documentation
 
 ```typescript
+TelegrafQuestion(config?: {
+    cancelTimeout?: number; // Throw null if user doesn't reply; leave blank to wait forever.
+})
+```
+
+```typescript
 TelegrafContext.ask(
     question: { text: string; extra?: ExtraReplyMessage } | string,
     cancel?: ((ctx: TelegrafContext) => Promise<boolean> | boolean) | string | null,
@@ -19,7 +25,39 @@ TelegrafContext.ask(
 ): Promise<TelegrafContext | null> // returns null on cancel
 ```
 
-## Example
+## Simple Example
+```typescript
+import Telegraf, { Markup } from "telegraf";
+import TelegrafQuestion from "telegraf-question";
+
+let username = 'user';
+
+let bot = new Telegraf(<BOT_TOKEN>);
+bot.use(TelegrafQuestion({
+    cancelTimeout: 300000 // 5 min
+}));
+
+bot.action('change_username', async (ctx, next) => {
+    ctx.answerCbQuery();
+    let newUsername = await ctx.ask('Send new username:');
+    if (newUsername === null) {
+        return next();
+    }
+    username = newUsername.message.text;
+    next();
+});
+
+bot.use((ctx) => {
+    ctx.reply(`Hi ${username}.`, Markup.inlineKeyboard([
+        [Markup.callbackButton('Change username', 'change_username')],
+    ]).extra());
+});
+
+bot.launch();
+
+```
+
+## Full Example
 ```typescript
 import Telegraf, { Markup } from "telegraf";
 import TelegrafQuestion from "telegraf-question";

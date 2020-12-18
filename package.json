@@ -1,6 +1,6 @@
 {
   "name": "telegraf-question",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "Ask question with async/await",
   "repository": "https://github.com/le-ar/telegraf-question",
   "author": "le-ar",
