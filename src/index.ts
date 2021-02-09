@@ -3,6 +3,7 @@ import { TelegrafContext } from "telegraf/typings/context";
 import { ExtraReplyMessage } from "telegraf/typings/telegram-types";
 
 const defaultFilters = {
+    'any': (ctx:TelegrafContext) => true,
     'text': (ctx: TelegrafContext) => (ctx.message?.text?.length ?? 0) > 0,
     'number': (ctx: TelegrafContext) => defaultFilters['text'](ctx) && !Number.isNaN(parseFloat(ctx.message.text)),
     'callback_query': (ctx: TelegrafContext) => typeof ctx.callbackQuery !== 'undefined',
@@ -25,7 +26,7 @@ export default function TelegrafQuestion<TContext extends TelegrafContext>(confi
             ctx.ask = async (
                 question: { text: string; extra?: ExtraReplyMessage } | string,
                 cancel?: ((ctx: TelegrafContext) => Promise<boolean> | boolean) | string | null,
-                type: 'text' | 'number' | 'callback_query' = 'text',
+                type: 'any' | 'text' | 'number' | 'callback_query' = 'text',
                 errorText: { text: string; extra?: ExtraReplyMessage } | string | null = null,
                 filter?: (ctx: TelegrafContext) => Promise<boolean> | boolean
             ): Promise<TelegrafContext | null> => {
@@ -41,6 +42,8 @@ export default function TelegrafQuestion<TContext extends TelegrafContext>(confi
                     return false;
                 };
 
+                let chatId = ctx.chat.id;
+
                 return await new Promise<TelegrafContext>((resolve) => {
                     let cancelTimeoutObj = {};
 
@@ -50,7 +53,7 @@ export default function TelegrafQuestion<TContext extends TelegrafContext>(confi
                             let ctx: TelegrafContext = yield filterResult;
                             if (ctx === cancelTimeoutObj) {
                                 resolve(null);
-                                delete wasAsked[ctx.chat.id];
+                                delete wasAsked[chatId];
                                 return filterResult;
                             }
                             filterResult = (await defaultFilters[type](ctx)) && (typeof filter === 'undefined' ? true : await filter(ctx));
