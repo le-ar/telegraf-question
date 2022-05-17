@@ -1,15 +1,15 @@
-import { Middleware } from "telegraf/typings/composer";
-import { TelegrafContext } from "telegraf/typings/context";
+import { Middleware } from "telegraf/typings/middleware";
+import { Context } from "telegraf/typings/context";
 import { ExtraReplyMessage } from "telegraf/typings/telegram-types";
 
 const defaultFilters = {
-    'any': (ctx:TelegrafContext) => true,
-    'text': (ctx: TelegrafContext) => (ctx.message?.text?.length ?? 0) > 0,
-    'number': (ctx: TelegrafContext) => defaultFilters['text'](ctx) && !Number.isNaN(parseFloat(ctx.message.text)),
-    'callback_query': (ctx: TelegrafContext) => typeof ctx.callbackQuery !== 'undefined',
+    'any': (ctx: any) => true,
+    'text': (ctx: any) => (ctx.message?.text?.length ?? 0) > 0,
+    'number': (ctx: any) => defaultFilters['text'](ctx) && !Number.isNaN(parseFloat(ctx.message.text)),
+    'callback_query': (ctx: any) => typeof ctx.callbackQuery !== 'undefined',
 };
 
-export default function TelegrafQuestion<TContext extends TelegrafContext>(config?: {
+export default function TelegrafQuestion<TContext extends Context>(config?: {
     cancelTimeout?: number,
 }): Middleware<TContext> {
     let wasAsked: {
@@ -25,13 +25,13 @@ export default function TelegrafQuestion<TContext extends TelegrafContext>(confi
 
             ctx.ask = async (
                 question: { text: string; extra?: ExtraReplyMessage } | string,
-                cancel?: ((ctx: TelegrafContext) => Promise<boolean> | boolean) | string | null,
+                cancel?: ((ctx: any) => Promise<boolean> | boolean) | string | null,
                 type: 'any' | 'text' | 'number' | 'callback_query' = 'text',
                 errorText: { text: string; extra?: ExtraReplyMessage } | string | null = null,
-                filter?: (ctx: TelegrafContext) => Promise<boolean> | boolean
-            ): Promise<TelegrafContext | null> => {
+                filter?: (ctx: any) => Promise<boolean> | boolean
+            ): Promise<Context | null> => {
 
-                let cancelFunction = (ctx: TelegrafContext) => {
+                let cancelFunction = (ctx: any) => {
                     if (typeof cancel !== 'undefined' && cancel !== null) {
                         if (typeof cancel === 'string') {
                             return ctx.message?.text === cancel;
@@ -44,13 +44,13 @@ export default function TelegrafQuestion<TContext extends TelegrafContext>(confi
 
                 let chatId = ctx.chat.id;
 
-                return await new Promise<TelegrafContext>((resolve) => {
+                return await new Promise<Context>((resolve) => {
                     let cancelTimeoutObj = {};
 
                     async function* answer() {
                         let filterResult = false;
                         while (!filterResult) {
-                            let ctx: TelegrafContext = yield filterResult;
+                            let ctx: any = yield filterResult;
                             if (ctx === cancelTimeoutObj) {
                                 resolve(null);
                                 delete wasAsked[chatId];
@@ -107,13 +107,13 @@ export default function TelegrafQuestion<TContext extends TelegrafContext>(confi
 }
 
 declare module 'telegraf/typings/context' {
-    interface TelegrafContext {
+    interface Context {
         ask: (
             question: { text: string; extra?: ExtraReplyMessage } | string,
-            cancel?: ((ctx: TelegrafContext) => Promise<boolean> | boolean) | string | null,
+            cancel?: ((ctx: any) => Promise<boolean> | boolean) | string | null,
             type?: 'text' | 'number' | 'callback_query',
             errorText?: { text: string; extra?: ExtraReplyMessage } | string | null,
-            filter?: (ctx: TelegrafContext) => Promise<boolean> | boolean,
-        ) => Promise<TelegrafContext> | Promise<null>;
+            filter?: (ctx: any) => Promise<boolean> | boolean,
+        ) => Promise<Context> | Promise<null>;
     }
 }
